@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meridian Financial Health Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0a0e13;
+  --panel:#12181f;
+  --panel-2:#161d26;
+  --border:#232b35;
+  --text:#e7edf3;
+  --sub:#8592a3;
+  --mute:#5b6673;
+  --green:#34d399;
+  --green-dim:#1a4c3d;
+  --red:#f87171;
+  --red-dim:#4c2323;
+  --amber:#fbbf24;
+  --blue:#5eb3f0;
+  --violet:#a78bfa;
+  --disp:'Space Grotesk',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--disp);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{
+  background:var(--panel);
+  border-right:1px solid var(--border);
+  padding:24px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:28px;
+}
+.brand{padding:0 8px;}
+.brand-mark{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--green);
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.brand-name{
+  font-size:17px;
+  font-weight:700;
+  margin-top:4px;
+  letter-spacing:-.01em;
+}
+.brand-sub{font-size:11px;color:var(--mute);margin-top:2px;}
+
+.nav{display:flex;flex-direction:column;gap:2px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:8px;
+  font-size:13.5px;color:var(--sub);cursor:pointer;
+  border:1px solid transparent;
+  transition:.15s;
+}
+.nav-item:hover{background:var(--panel-2);color:var(--text);}
+.nav-item.active{background:var(--panel-2);color:var(--text);border-color:var(--border);}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--mute);flex-shrink:0;}
+.nav-item.active .nav-dot{background:var(--green);}
+
+.sidebar-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--border);}
+.foot-label{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.1em;}
+.foot-val{font-family:var(--mono);font-size:12px;color:var(--sub);margin-top:4px;}
+
+/* MAIN */
+.main{padding:28px 32px 60px;max-width:1400px;}
+.topbar{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  margin-bottom:24px;flex-wrap:wrap;gap:16px;
+}
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.01em;}
+.page-sub{font-size:12.5px;color:var(--sub);margin-top:4px;}
+.controls{display:flex;gap:8px;align-items:center;}
+.select{
+  background:var(--panel-2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  padding:8px 12px;border-radius:8px;cursor:pointer;
+}
+.badge-live{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:11px;color:var(--green);
+  background:var(--green-dim);padding:6px 10px;border-radius:20px;
+}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr 1fr;gap:12px;margin-bottom:20px;}
+.kpi{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;position:relative;overflow:hidden;
+}
+.kpi-score{grid-row:span 1;display:flex;gap:16px;align-items:center;}
+.kpi-label{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.08em;}
+.kpi-value{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:8px;letter-spacing:-.02em;}
+.kpi-delta{font-family:var(--mono);font-size:11px;margin-top:6px;display:flex;align-items:center;gap:4px;}
+.up{color:var(--green);}
+.down{color:var(--red);}
+.flat{color:var(--sub);}
+
+/* Health ring */
+.ring-wrap{position:relative;width:64px;height:64px;flex-shrink:0;}
+.ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:16px;}
+
+/* GRID / PANELS */
+.grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+.panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:18px 20px;
+}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.panel-title{font-size:13.5px;font-weight:600;}
+.panel-tag{font-family:var(--mono);font-size:10px;color:var(--mute);background:var(--panel-2);padding:3px 8px;border-radius:6px;border:1px solid var(--border);}
+.chart-box{position:relative;height:260px;}
+.chart-box.tall{height:320px;}
+.chart-box.short{height:180px;}
+
+.legend-row{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);}
+.legend-dot{width:8px;height:8px;border-radius:2px;}
+
+.insight-list{display:flex;flex-direction:column;gap:10px;}
+.insight{
+  display:flex;gap:10px;padding:10px 12px;border-radius:8px;
+  background:var(--panel-2);border:1px solid var(--border);
+  font-size:12.5px;line-height:1.5;
+}
+.insight-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-family:var(--mono);}
+.insight-icon.warn{background:rgba(251,191,36,.15);color:var(--amber);}
+.insight-icon.good{background:var(--green-dim);color:var(--green);}
+.insight-icon.bad{background:var(--red-dim);color:var(--red);}
+.insight-text b{color:var(--text);}
+.insight-text{color:var(--sub);}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{
+  text-align:right;font-family:var(--mono);font-size:10px;color:var(--mute);
+  text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid var(--border);
+}
+th:first-child,td:first-child{text-align:left;}
+td{padding:8px;text-align:right;font-family:var(--mono);border-bottom:1px solid rgba(35,43,53,.5);}
+tr.total td{font-weight:700;color:var(--text);border-top:1px solid var(--border);border-bottom:none;}
+tr.sub td:first-child{padding-left:20px;color:var(--sub);}
+.tag-pos{color:var(--green);}
+.tag-neg{color:var(--red);}
+
+.tab-row{display:flex;gap:6px;margin-bottom:16px;}
+.tab{
+  padding:8px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;
+  border:1px solid var(--border);color:var(--sub);background:var(--panel);
+}
+.tab.active{background:var(--panel-2);color:var(--text);border-color:var(--blue);}
+
+.section{display:none;}
+.section.active{display:block;}
+
+.foot-note{font-size:11px;color:var(--mute);margin-top:24px;line-height:1.6;border-top:1px solid var(--border);padding-top:16px;}
+
+@media(max-width:1100px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{flex-direction:row;overflow-x:auto;padding:14px 16px;}
+  .kpi-row{grid-template-columns:1fr 1fr;}
+  .grid,.grid-3{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">● Live · FY2026</div>
+      <div class="brand-name">Meridian Textiles</div>
+      <div class="brand-sub">Financial Health Dashboard</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" data-target="overview"><span class="nav-dot"></span>Overview</div>
+      <div class="nav-item" data-target="income"><span class="nav-dot"></span>Income Statement</div>
+      <div class="nav-item" data-target="balance"><span class="nav-dot"></span>Balance Sheet</div>
+      <div class="nav-item" data-target="cashflow"><span class="nav-dot"></span>Cash Flow</div>
+      <div class="nav-item" data-target="forecast"><span class="nav-dot"></span>Forecast & Planning</div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="foot-label">Reporting Currency</div>
+      <div class="foot-val">INR (₹, Lakhs)</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <section class="section active" id="overview">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Financial Health Overview</div>
+          <div class="page-sub">12-month trailing view · Last updated Jun 2026</div>
+        </div>
+        <div class="controls">
+          <span class="badge-live"><span class="pulse"></span>Synced</span>
+          <select class="select" id="periodSelect">
+            <option>Last 12 Months</option>
+            <option>Last 6 Months</option>
+            <option>Last Quarter</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi kpi-score">
+          <div class="ring-wrap"><canvas id="healthRing"></canvas><div class="ring-num" id="healthNum">—</div></div>
+          <div>
+            <div class="kpi-label">Health Score</div>
+            <div class="kpi-delta up" id="healthDelta">▲ +4 pts vs last qtr</div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Revenue (TTM)</div>
+          <div class="kpi-value" id="kpiRevenue">—</div>
+          <div class="kpi-delta up" id="kpiRevenueDelta">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Net Profit Margin</div>
+          <div class="kpi-value" id="kpiMargin">—</div>
+          <div class="kpi-delta up" id="kpiMarginDelta">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Cash Balance</div>
+          <div class="kpi-value" id="kpiCash">—</div>
+          <div class="kpi-delta down" id="kpiCashDelta">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Current Ratio</div>
+          <div class="kpi-value" id="kpiCurrent">—</div>
+          <div class="kpi-delta flat" id="kpiCurrentDelta">—</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Revenue vs. Expenses vs. Net Profit</div>
+            <div class="panel-tag">₹ Lakhs / month</div>
+          </div>
+          <div class="chart-box tall"><canvas id="revExpChart"></canvas></div>
+          <div class="legend-row">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Revenue</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Expenses</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Net Profit</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Auto-Generated Insights</div>
+            <div class="panel-tag">Rule-based</div>
+          </div>
+          <div class="insight-list" id="insightList"></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Working Capital</div><div class="panel-tag">₹L</div></div>
+          <div class="chart-box short"><canvas id="wcChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Expense Breakdown</div><div class="panel-tag">Latest month</div></div>
+          <div class="chart-box short"><canvas id="expBreakChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Cash Runway</div><div class="panel-tag">months</div></div>
+          <div class="chart-box short"><canvas id="runwayChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INCOME STATEMENT -->
+    <section class="section" id="income">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Income Statement</div>
+          <div class="page-sub">Profitability trends & margin analysis</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Monthly P&L Trend</div><div class="panel-tag">₹L</div></div>
+          <div class="chart-box tall"><canvas id="plTrendChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Margin Trends</div><div class="panel-tag">%</div></div>
+          <div class="chart-box tall"><canvas id="marginChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Income Statement — Latest Month vs. Prior</div><div class="panel-tag">₹ Lakhs</div></div>
+        <table id="isTable"></table>
+      </div>
+    </section>
+
+    <!-- BALANCE SHEET -->
+    <section class="section" id="balance">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Balance Sheet</div>
+          <div class="page-sub">Assets, liabilities & equity structure</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Assets vs. Liabilities vs. Equity</div><div class="panel-tag">₹L / month</div></div>
+          <div class="chart-box tall"><canvas id="bsTrendChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Asset Composition</div><div class="panel-tag">Latest month</div></div>
+          <div class="chart-box tall"><canvas id="assetCompChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="panel"><div class="panel-head"><div class="panel-title">Current Ratio</div><div class="panel-tag">x</div></div><div class="chart-box short"><canvas id="curRatioChart"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><div class="panel-title">Debt-to-Equity</div><div class="panel-tag">x</div></div><div class="chart-box short"><canvas id="deChart"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><div class="panel-title">Balance Sheet Snapshot</div><div class="panel-tag">₹L</div></div>
+          <table id="bsTable" style="font-size:11.5px"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CASH FLOW -->
+    <section class="section" id="cashflow">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Cash Flow</div>
+          <div class="page-sub">Operating, investing & financing activity</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><div class="panel-title">Cash Flow by Activity</div><div class="panel-tag">₹L / month</div></div>
+        <div class="chart-box tall"><canvas id="cfChart"></canvas></div>
+        <div class="legend-row">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Operating</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span>Investing</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--violet)"></span>Financing</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Net / Closing Cash</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Cumulative Cash Position</div><div class="panel-tag">₹L</div></div>
+          <div class="chart-box"><canvas id="cumCashChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Cash Flow Statement</div><div class="panel-tag">Latest month, ₹L</div></div>
+          <table id="cfTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FORECAST -->
+    <section class="section" id="forecast">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Forecast & Planning</div>
+          <div class="page-sub">Trend-based projection, 6-month horizon</div>
+        </div>
+        <div class="controls">
+          <select class="select" id="horizonSelect">
+            <option value="3">3-Month Horizon</option>
+            <option value="6" selected>6-Month Horizon</option>
+            <option value="12">12-Month Horizon</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head">
+          <div class="panel-title">Revenue & Net Profit Forecast</div>
+          <div class="panel-tag">Linear trend + seasonal index</div>
+        </div>
+        <div class="chart-box tall"><canvas id="forecastChart"></canvas></div>
+        <div class="legend-row">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Actual Revenue</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Actual Net Profit</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#5eb3f0;opacity:.4"></span>Forecast Revenue</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#34d399;opacity:.4"></span>Forecast Net Profit</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Cash Runway Projection</div><div class="panel-tag">₹L</div></div>
+          <div class="chart-box"><canvas id="cashForecastChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Planning Notes</div><div class="panel-tag">Auto</div></div>
+          <div class="insight-list" id="forecastInsights"></div>
+        </div>
+      </div>
+
+      <div class="foot-note">
+        Forecasts use simple linear regression on trailing 12-month actuals plus a seasonal adjustment index; treat as directional planning input, not a guarantee. Rebuild the model as new actuals land each month. This dashboard is a demo built on illustrative sample data — connect it to your accounting export (Tally/Zoho Books/QuickBooks) to make it live.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ---------------- SAMPLE DATA (12 months) ---------------- */
+const months = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+const n = months.length;
+
+// Revenue with mild seasonality (festival bump in Oct/Nov, dip in Jul/Aug), gentle uptrend
+const revenue = [42,44,47,58,63,52,49,46,55,51,53,57].map(v=>v*1.15);
+const cogs    = revenue.map(r=>r*0.52 + (Math.random()*1.5-0.75));
+const opex    = revenue.map((r,i)=> r*0.28 + Math.sin(i/2)*1.2 );
+const grossProfit = revenue.map((r,i)=>r-cogs[i]);
+const netProfit   = revenue.map((r,i)=>grossProfit[i]-opex[i]-(r*0.03)); // tax/interest approx
+const ebitda = revenue.map((r,i)=>grossProfit[i]-opex[i]*0.85);
+
+// Balance sheet
+const currentAssets = [88,90,93,101,108,99,97,95,103,101,104,109];
+const fixedAssets   = [140,141,142,144,145,146,147,148,150,151,152,154];
+const totalAssets   = currentAssets.map((c,i)=>c+fixedAssets[i]);
+const currentLiab   = [46,47,49,55,58,52,50,49,53,51,52,54];
+const longTermDebt  = [72,71,70,69,68,67,66,65,64,63,62,61];
+const totalLiab     = currentLiab.map((c,i)=>c+longTermDebt[i]);
+const equity        = totalAssets.map((a,i)=>a-totalLiab[i]);
+
+// Cash flow
+const cfOperating = netProfit.map((np,i)=> np + opex[i]*0.06);
+const cfInvesting = [-4,-3,-6,-2,-5,-3,-8,-2,-3,-4,-6,-3];
+const cfFinancing = [-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2];
+const netCashFlow = cfOperating.map((o,i)=>o+cfInvesting[i]+cfFinancing[i]);
+let cashBal = [];
+let running = 62;
+netCashFlow.forEach(v=>{ running += v; cashBal.push(running); });
+
+const expenseBreakdown = { labels:['COGS/Materials','Salaries & Wages','Rent & Utilities','Marketing','Admin & Other'],
+  values:[cogs[n-1], opex[n-1]*0.5, opex[n-1]*0.18, opex[n-1]*0.14, opex[n-1]*0.18] };
+
+const fmt = v => '₹' + v.toFixed(1) + 'L';
+const fmtPct = v => (v>=0?'+':'') + v.toFixed(1) + '%';
+const round1 = v => Math.round(v*10)/10;
+
+/* ---------------- CHART DEFAULTS ---------------- */
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#8592a3';
+const grid = { color:'rgba(255,255,255,.04)', drawTicks:false };
+const gridX = { display:false };
+
+function baseOpts(extra={}){
+  return Object.assign({
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{display:false}, tooltip:{
+      backgroundColor:'#161d26', borderColor:'#232b35', borderWidth:1,
+      titleColor:'#e7edf3', bodyColor:'#c3ccd6', padding:10, boxPadding:4
+    }},
+    scales:{
+      x:{ grid: gridX, ticks:{color:'#5b6673'} },
+      y:{ grid: grid, ticks:{color:'#5b6673'} }
+    }
+  }, extra);
+}
+
+/* ---------------- OVERVIEW ---------------- */
+new Chart(document.getElementById('healthRing'),{
+  type:'doughnut',
+  data:{ datasets:[{ data:[78,22], backgroundColor:['#34d399','#1c2530'], borderWidth:0, cutout:'75%' }]},
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{enabled:false}} }
+});
+document.getElementById('healthNum').textContent = '78';
+
+new Chart(document.getElementById('revExpChart'),{
+  type:'bar',
+  data:{ labels:months, datasets:[
+    { type:'line', label:'Net Profit', data:netProfit.map(round1), borderColor:'#34d399', backgroundColor:'#34d399', tension:.35, pointRadius:2, borderWidth:2, yAxisID:'y' },
+    { label:'Revenue', data:revenue.map(round1), backgroundColor:'rgba(94,179,240,.55)', borderRadius:4, barPercentage:.6 },
+    { label:'Expenses', data:cogs.map((c,i)=>round1(c+opex[i])), backgroundColor:'rgba(248,113,113,.4)', borderRadius:4, barPercentage:.6 },
+  ]},
+  options: baseOpts()
+});
+
+new Chart(document.getElementById('wcChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[
+    { label:'Current Assets', data:currentAssets, borderColor:'#5eb3f0', backgroundColor:'rgba(94,179,240,.1)', fill:true, tension:.35, pointRadius:0, borderWidth:2 },
+    { label:'Current Liabilities', data:currentLiab, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.08)', fill:true, tension:.35, pointRadius:0, borderWidth:2 },
+  ]},
+  options: baseOpts({scales:{x:{grid:gridX,ticks:{color:'#5b6673',maxTicksLimit:6}},y:{grid,ticks:{color:'#5b6673'}}}})
+});
+
+new Chart(document.getElementById('expBreakChart'),{
+  type:'doughnut',
+  data:{ labels:expenseBreakdown.labels, datasets:[{ data:expenseBreakdown.values.map(round1),
+    backgroundColor:['#f87171','#fbbf24','#5eb3f0','#a78bfa','#5b6673'], borderColor:'#12181f', borderWidth:2 }]},
+  options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+    plugins:{ legend:{position:'right', labels:{boxWidth:8,font:{size:9.5},color:'#8592a3'}},
+    tooltip:{backgroundColor:'#161d26', borderColor:'#232b35', borderWidth:1} } }
+});
+
+new Chart(document.getElementById('runwayChart'),{
+  type:'bar',
+  data:{ labels:months, datasets:[{ data:cashBal.map(round1), backgroundColor:cashBal.map(v=>v<40?'#f87171':'#34d399'), borderRadius:4, barPercentage:.55 }]},
+  options: baseOpts({scales:{x:{grid:gridX,ticks:{color:'#5b6673',maxTicksLimit:6}},y:{grid,ticks:{color:'#5b6673'}}}})
+});
+
+/* KPI fills */
+document.getElementById('kpiRevenue').textContent = fmt(revenue.reduce((a,b)=>a+b,0));
+document.getElementById('kpiRevenueDelta').textContent = '▲ ' + fmtPct((revenue[n-1]-revenue[n-2])/revenue[n-2]*100) + ' MoM';
+const marginLatest = netProfit[n-1]/revenue[n-1]*100;
+const marginPrev = netProfit[n-2]/revenue[n-2]*100;
+document.getElementById('kpiMargin').textContent = marginLatest.toFixed(1)+'%';
+document.getElementById('kpiMarginDelta').textContent = (marginLatest>=marginPrev?'▲ ':'▼ ') + fmtPct(marginLatest-marginPrev) + ' pts';
+document.getElementById('kpiMarginDelta').className = 'kpi-delta ' + (marginLatest>=marginPrev?'up':'down');
+document.getElementById('kpiCash').textContent = fmt(cashBal[n-1]);
+document.getElementById('kpiCashDelta').textContent = (netCashFlow[n-1]>=0?'▲ ':'▼ ') + fmt(Math.abs(netCashFlow[n-1])) + ' this month';
+document.getElementById('kpiCashDelta').className = 'kpi-delta ' + (netCashFlow[n-1]>=0?'up':'down');
+const curRatio = currentAssets[n-1]/currentLiab[n-1];
+document.getElementById('kpiCurrent').textContent = curRatio.toFixed(2)+'x';
+document.getElementById('kpiCurrentDelta').textContent = curRatio>=1.5 ? 'Healthy zone' : 'Below target (1.5x)';
+
+/* Insights */
+const insights = [];
+if(marginLatest < marginPrev) insights.push({type:'warn', text:`Net margin dipped to <b>${marginLatest.toFixed(1)}%</b> this month, down from ${marginPrev.toFixed(1)}%. Check the COGS ratio before next pricing review.`});
+else insights.push({type:'good', text:`Net margin improved to <b>${marginLatest.toFixed(1)}%</b>, the best in the trailing period.`});
+if(curRatio < 1.5) insights.push({type:'warn', text:`Current ratio is <b>${curRatio.toFixed(2)}x</b> — below the 1.5x comfort zone for a trading/manufacturing SME. Liabilities are growing faster than liquid assets.`});
+else insights.push({type:'good', text:`Current ratio of <b>${curRatio.toFixed(2)}x</b> indicates comfortable short-term liquidity.`});
+const cogsPct = cogs[n-1]/revenue[n-1]*100;
+insights.push({type: cogsPct>55?'warn':'good', text:`COGS sits at <b>${cogsPct.toFixed(1)}%</b> of revenue this month${cogsPct>55?' — above the 55% flag line, worth a supplier cost review.':'.'}`});
+insights.push({type:'good', text:`Cash runway at current burn is approx. <b>${Math.round(cashBal[n-1]/Math.max(1,Math.abs(Math.min(0,netCashFlow[n-1])||netCashFlow[n-1])))} months</b> if the trailing net cash flow holds.`});
+document.getElementById('insightList').innerHTML = insights.map(i=>`<div class="insight"><div class="insight-icon ${i.type}">${i.type==='good'?'✓':i.type==='warn'?'!':'✕'}</div><div class="insight-text">${i.text}</div></div>`).join('');
+
+/* ---------------- INCOME STATEMENT ---------------- */
+new Chart(document.getElementById('plTrendChart'),{
+  type:'bar',
+  data:{ labels:months, datasets:[
+    { label:'Revenue', data:revenue.map(round1), backgroundColor:'rgba(94,179,240,.6)', borderRadius:4, barPercentage:.6 },
+    { label:'Gross Profit', data:grossProfit.map(round1), backgroundColor:'rgba(52,211,153,.55)', borderRadius:4, barPercentage:.6 },
+    { label:'Net Profit', data:netProfit.map(round1), backgroundColor:'rgba(251,191,36,.6)', borderRadius:4, barPercentage:.6 },
+  ]},
+  options: baseOpts({plugins:{legend:{display:true, position:'top', align:'end', labels:{boxWidth:8,color:'#8592a3',font:{size:10}}},tooltip:baseOpts().plugins.tooltip}})
+});
+
+const grossMargin = revenue.map((r,i)=>grossProfit[i]/r*100);
+const netMargin = revenue.map((r,i)=>netProfit[i]/r*100);
+const ebitdaMargin = revenue.map((r,i)=>ebitda[i]/r*100);
+new Chart(document.getElementById('marginChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[
+    { label:'Gross Margin', data:grossMargin.map(round1), borderColor:'#5eb3f0', tension:.35, pointRadius:2, borderWidth:2 },
+    { label:'EBITDA Margin', data:ebitdaMargin.map(round1), borderColor:'#fbbf24', tension:.35, pointRadius:2, borderWidth:2 },
+    { label:'Net Margin', data:netMargin.map(round1), borderColor:'#34d399', tension:.35, pointRadius:2, borderWidth:2 },
+  ]},
+  options: baseOpts({plugins:{legend:{display:true, position:'top', align:'end', labels:{boxWidth:8,color:'#8592a3',font:{size:10}}},tooltip:baseOpts().plugins.tooltip}})
+});
+
+function isTableRow(label, latest, prev, isTotal=false, isSub=false){
+  const delta = latest-prev;
+  const cls = isTotal?'total':(isSub?'sub':'');
+  return `<tr class="${cls}"><td>${label}</td><td>${fmt(latest)}</td><td>${fmt(prev)}</td><td class="${delta>=0?'tag-pos':'tag-neg'}">${delta>=0?'+':''}${delta.toFixed(1)}</td></tr>`;
+}
+document.getElementById('isTable').innerHTML = `
+  <tr><th>Line Item</th><th>Latest</th><th>Prior</th><th>Δ</th></tr>
+  ${isTableRow('Revenue', revenue[n-1], revenue[n-2])}
+  ${isTableRow('COGS', cogs[n-1], cogs[n-2], false, true)}
+  ${isTableRow('Gross Profit', grossProfit[n-1], grossProfit[n-2], true)}
+  ${isTableRow('Operating Expenses', opex[n-1], opex[n-2], false, true)}
+  ${isTableRow('EBITDA', ebitda[n-1], ebitda[n-2], true)}
+  ${isTableRow('Net Profit', netProfit[n-1], netProfit[n-2], true)}
+`;
+
+/* ---------------- BALANCE SHEET ---------------- */
+new Chart(document.getElementById('bsTrendChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[
+    { label:'Total Assets', data:totalAssets, borderColor:'#5eb3f0', backgroundColor:'rgba(94,179,240,.08)', fill:true, tension:.3, pointRadius:0, borderWidth:2 },
+    { label:'Total Liabilities', data:totalLiab, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.06)', fill:true, tension:.3, pointRadius:0, borderWidth:2 },
+    { label:'Equity', data:equity, borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', fill:true, tension:.3, pointRadius:0, borderWidth:2 },
+  ]},
+  options: baseOpts({plugins:{legend:{display:true, position:'top', align:'end', labels:{boxWidth:8,color:'#8592a3',font:{size:10}}},tooltip:baseOpts().plugins.tooltip}})
+});
+
+new Chart(document.getElementById('assetCompChart'),{
+  type:'doughnut',
+  data:{ labels:['Current Assets','Fixed Assets'], datasets:[{ data:[currentAssets[n-1],fixedAssets[n-1]].map(round1),
+    backgroundColor:['#5eb3f0','#a78bfa'], borderColor:'#12181f', borderWidth:2 }]},
+  options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+    plugins:{ legend:{position:'bottom', labels:{boxWidth:8,font:{size:10},color:'#8592a3'}},
+    tooltip:{backgroundColor:'#161d26', borderColor:'#232b35', borderWidth:1} } }
+});
+
+const curRatioSeries = currentAssets.map((c,i)=>c/currentLiab[i]);
+new Chart(document.getElementById('curRatioChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[{ data:curRatioSeries.map(v=>round1(v*100)/100), borderColor:'#5eb3f0', backgroundColor:'rgba(94,179,240,.1)', fill:true, tension:.35, pointRadius:0, borderWidth:2 }]},
+  options: baseOpts({scales:{x:{grid:gridX,ticks:{color:'#5b6673',maxTicksLimit:4}},y:{grid,ticks:{color:'#5b6673'}}}})
+});
+
+const deSeries = totalLiab.map((l,i)=>l/equity[i]);
+new Chart(document.getElementById('deChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[{ data:deSeries.map(v=>round1(v*100)/100), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.1)', fill:true, tension:.35, pointRadius:0, borderWidth:2 }]},
+  options: baseOpts({scales:{x:{grid:gridX,ticks:{color:'#5b6673',maxTicksLimit:4}},y:{grid,ticks:{color:'#5b6673'}}}})
+});
+
+document.getElementById('bsTable').innerHTML = `
+  <tr><th>Item</th><th>₹L</th></tr>
+  <tr class="sub"><td>Current Assets</td><td>${fmt(currentAssets[n-1])}</td></tr>
+  <tr class="sub"><td>Fixed Assets</td><td>${fmt(fixedAssets[n-1])}</td></tr>
+  <tr class="total"><td>Total Assets</td><td>${fmt(totalAssets[n-1])}</td></tr>
+  <tr class="sub"><td>Current Liabilities</td><td>${fmt(currentLiab[n-1])}</td></tr>
+  <tr class="sub"><td>Long-term Debt</td><td>${fmt(longTermDebt[n-1])}</td></tr>
+  <tr class="total"><td>Total Liabilities</td><td>${fmt(totalLiab[n-1])}</td></tr>
+  <tr class="total"><td>Equity</td><td>${fmt(equity[n-1])}</td></tr>
+`;
+
+/* ---------------- CASH FLOW ---------------- */
+new Chart(document.getElementById('cfChart'),{
+  type:'bar',
+  data:{ labels:months, datasets:[
+    { label:'Operating', data:cfOperating.map(round1), backgroundColor:'rgba(94,179,240,.65)', stack:'s', borderRadius:3 },
+    { label:'Investing', data:cfInvesting.map(round1), backgroundColor:'rgba(251,191,36,.65)', stack:'s', borderRadius:3 },
+    { label:'Financing', data:cfFinancing.map(round1), backgroundColor:'rgba(167,139,250,.65)', stack:'s', borderRadius:3 },
+    { type:'line', label:'Closing Cash', data:cashBal.map(round1), borderColor:'#34d399', borderWidth:2, tension:.35, pointRadius:2, yAxisID:'y1' },
+  ]},
+  options: baseOpts({ scales:{
+    x:{grid:gridX,ticks:{color:'#5b6673'}},
+    y:{grid,ticks:{color:'#5b6673'}, stacked:true},
+    y1:{ position:'right', grid:{display:false}, ticks:{color:'#5b6673'} }
+  }})
+});
+
+new Chart(document.getElementById('cumCashChart'),{
+  type:'line',
+  data:{ labels:months, datasets:[{ data:cashBal.map(round1), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', fill:true, tension:.35, pointRadius:2, borderWidth:2 }]},
+  options: baseOpts()
+});
+
+document.getElementById('cfTable').innerHTML = `
+  <tr><th>Activity</th><th>Latest</th><th>Prior</th></tr>
+  ${isTableRow('Operating Cash Flow', cfOperating[n-1], cfOperating[n-2])}
+  ${isTableRow('Investing Cash Flow', cfInvesting[n-1], cfInvesting[n-2])}
+  ${isTableRow('Financing Cash Flow', cfFinancing[n-1], cfFinancing[n-2])}
+  ${isTableRow('Net Cash Flow', netCashFlow[n-1], netCashFlow[n-2], true)}
+  <tr class="total"><td>Closing Cash</td><td>${fmt(cashBal[n-1])}</td><td>${fmt(cashBal[n-2])}</td><td></td></tr>
+`;
+
+/* ---------------- FORECAST (linear regression + seasonal index) ---------------- */
+function linreg(arr){
+  const x = arr.map((_,i)=>i);
+  const xN = x.length, xM = x.reduce((a,b)=>a+b,0)/xN, yM = arr.reduce((a,b)=>a+b,0)/xN;
+  let num=0, den=0;
+  for(let i=0;i<xN;i++){ num += (x[i]-xM)*(arr[i]-yM); den += (x[i]-xM)**2; }
+  const slope = num/den, intercept = yM - slope*xM;
+  return {slope, intercept};
+}
+// seasonal index (ratio of each month to its trend value)
+function seasonalIndex(arr){
+  const {slope, intercept} = linreg(arr);
+  return arr.map((v,i)=> v/(intercept+slope*i));
+}
+
+function buildForecast(horizon){
+  const revReg = linreg(revenue);
+  const npReg = linreg(netProfit);
+  const revSeason = seasonalIndex(revenue);
+  const fLabels = [...months];
+  const fRevenue = [...revenue.map(round1)];
+  const fNetProfit = [...netProfit.map(round1)];
+  const fRevOnly = new Array(n).fill(null);
+  const fNpOnly = new Array(n).fill(null);
+  fRevOnly[n-1] = revenue[n-1]; fNpOnly[n-1] = netProfit[n-1];
+
+  for(let i=0;i<horizon;i++){
+    const idx = n+i;
+    const seasonFactor = revSeason[idx % n];
+    const projRev = (revReg.intercept + revReg.slope*idx) * seasonFactor;
+    const projNp = npReg.intercept + npReg.slope*idx;
+    fLabels.push(months[idx % n] + " 'F");
+    fRevenue.push(null); fNetProfit.push(null);
+    fRevOnly.push(round1(projRev));
+    fNpOnly.push(round1(projNp));
+  }
+  return {fLabels, fRevenue, fNetProfit, fRevOnly, fNpOnly};
+}
+
+let forecastChartInst, cashForecastChartInst;
+function renderForecast(horizon){
+  const {fLabels, fRevenue, fNetProfit, fRevOnly, fNpOnly} = buildForecast(horizon);
+  if(forecastChartInst) forecastChartInst.destroy();
+  forecastChartInst = new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{ labels:fLabels, datasets:[
+      { label:'Revenue (actual)', data:fRevenue, borderColor:'#5eb3f0', borderWidth:2, pointRadius:2, tension:.3, spanGaps:false },
+      { label:'Net Profit (actual)', data:fNetProfit, borderColor:'#34d399', borderWidth:2, pointRadius:2, tension:.3, spanGaps:false },
+      { label:'Revenue (forecast)', data:fRevOnly, borderColor:'rgba(94,179,240,.5)', borderDash:[5,4], borderWidth:2, pointRadius:2, tension:.3 },
+      { label:'Net Profit (forecast)', data:fNpOnly, borderColor:'rgba(52,211,153,.5)', borderDash:[5,4], borderWidth:2, pointRadius:2, tension:.3 },
+    ]},
+    options: baseOpts()
+  });
+
+  // cash forecast: project net cash flow trend forward and accumulate
+  const ncfReg = linreg(netCashFlow);
+  let cf = [...cashBal];
+  let runningC = cashBal[n-1];
+  const cfLabels = [...months];
+  const cfActual = [...cashBal.map(round1)];
+  const cfProj = new Array(n).fill(null);
+  cfProj[n-1] = cashBal[n-1];
+  for(let i=0;i<horizon;i++){
+    const idx = n+i;
+    const projFlow = ncfReg.intercept + ncfReg.slope*idx;
+    runningC += projFlow;
+    cfLabels.push(months[idx%n]+" 'F");
+    cfActual.push(null);
+    cfProj.push(round1(runningC));
+  }
+  if(cashForecastChartInst) cashForecastChartInst.destroy();
+  cashForecastChartInst = new Chart(document.getElementById('cashForecastChart'),{
+    type:'line',
+    data:{ labels:cfLabels, datasets:[
+      { label:'Actual', data:cfActual, borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.08)', fill:true, borderWidth:2, pointRadius:2, tension:.3 },
+      { label:'Projected', data:cfProj, borderColor:'rgba(251,191,36,.8)', borderDash:[5,4], backgroundColor:'rgba(251,191,36,.06)', fill:true, borderWidth:2, pointRadius:2, tension:.3 },
+    ]},
+    options: baseOpts()
+  });
+
+  const fInsights = [];
+  const lastProjRev = fRevOnly[fRevOnly.length-1];
+  const lastProjNp = fNpOnly[fNpOnly.length-1];
+  const revGrowth = ((lastProjRev-revenue[n-1])/revenue[n-1]*100);
+  fInsights.push({type: revGrowth>=0?'good':'warn', text:`Revenue is trending toward <b>${fmt(lastProjRev)}/mo</b> by the end of this horizon (${revGrowth>=0?'+':''}${revGrowth.toFixed(1)}% vs. latest actual), based on the 12-month linear trend with seasonal adjustment.`});
+  const npGrowth = lastProjNp - netProfit[n-1];
+  fInsights.push({type: npGrowth>=0?'good':'warn', text:`Projected net profit moves by <b>${npGrowth>=0?'+':''}${npGrowth.toFixed(1)}L/mo</b> over the horizon — ${npGrowth>=0?'keep an eye on whether opex scales slower than revenue to protect this.':'worth reviewing opex growth against the revenue trend.'}`});
+  const finalCash = cfProj[cfProj.length-1];
+  fInsights.push({type: finalCash>30?'good':'warn', text:`Projected cash balance at the end of the horizon is <b>${fmt(finalCash)}</b>${finalCash<30?' — below a comfortable 30L buffer for this cost base, consider financing or receivables tightening.':'.'}`});
+  fInsights.push({type:'warn', text:`This model doesn't know about one-off events — planned capex, loan repayments, or large orders should be layered in manually before using this for budget approval.`});
+  document.getElementById('forecastInsights').innerHTML = fInsights.map(i=>`<div class="insight"><div class="insight-icon ${i.type}">${i.type==='good'?'✓':'!'}</div><div class="insight-text">${i.text}</div></div>`).join('');
+}
+renderForecast(6);
+document.getElementById('horizonSelect').addEventListener('change', e=>renderForecast(parseInt(e.target.value)));
+
+/* ---------------- NAV ---------------- */
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.target).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
